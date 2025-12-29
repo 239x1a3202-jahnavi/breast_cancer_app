@@ -17,7 +17,10 @@ st.set_page_config(
 )
 
 st.title("🩺 Breast Cancer Prediction System")
-st.write("Adjust the patient feature values in the sidebar to predict cancer type.")
+st.write(
+    "Enter the patient feature values manually in the sidebar to predict "
+    "whether the tumor is **Benign** or **Malignant**."
+)
 
 # -------------------------
 # Load Dataset
@@ -52,28 +55,30 @@ model = RandomForestClassifier(
 model.fit(X_train, y_train)
 
 # -------------------------
-# Sidebar Inputs (ALL FEATURES)
+# Sidebar Inputs (MANUAL ENTRY)
 # -------------------------
 st.sidebar.header("Patient Feature Values")
+st.sidebar.write("Enter numeric values for each medical feature.")
 
 user_input = {}
 
 for feature in X.columns:
-    user_input[feature] = st.sidebar.slider(
+    user_input[feature] = st.sidebar.number_input(
         label=feature.replace("_", " ").title(),
         min_value=float(X[feature].min()),
         max_value=float(X[feature].max()),
-        value=float(X[feature].mean())
+        value=float(X[feature].mean()),
+        format="%.5f"
     )
 
-# Convert input to DataFrame (correct order)
+# Convert input to DataFrame
 input_df = pd.DataFrame([user_input])
 input_scaled = scaler.transform(input_df)
 
 # -------------------------
 # Prediction
 # -------------------------
-if st.sidebar.button("Predict Cancer"):
+if st.sidebar.button("🔍 Predict Cancer"):
     prediction = model.predict(input_scaled)[0]
     probability = model.predict_proba(input_scaled)[0]
 
@@ -86,13 +91,14 @@ if st.sidebar.button("Predict Cancer"):
         st.error(result)
 
     st.subheader("Prediction Probability")
-    st.write(f"Benign Probability: **{probability[1]:.2f}**")
-    st.write(f"Malignant Probability: **{probability[0]:.2f}**")
+    st.write(f"🟢 Benign Probability: **{probability[1]:.2f}**")
+    st.write(f"🔴 Malignant Probability: **{probability[0]:.2f}**")
 
     # -------------------------
     # Feature Importance Plot
     # -------------------------
     st.subheader("Top 10 Important Features")
+
     importances = pd.Series(
         model.feature_importances_,
         index=X.columns
@@ -108,4 +114,4 @@ if st.sidebar.button("Predict Cancer"):
 # Footer
 # -------------------------
 st.markdown("---")
-st.caption("Developed using Machine Learning & Streamlit")
+st.caption("Developed by Jahnavi using Machine Learning & Streamlit")
