@@ -18,8 +18,7 @@ st.set_page_config(
 
 st.title("🩺 Breast Cancer Prediction System")
 st.write(
-    "Please **manually enter all patient feature values** below. "
-    "These values represent clinical and diagnostic measurements."
+    "Please **manually type each feature value** exactly as shown in the medical report."
 )
 
 # -------------------------
@@ -52,61 +51,68 @@ model = RandomForestClassifier(
 model.fit(X_train, y_train)
 
 # -------------------------
-# Manual Input Form (ALL FEATURES)
+# Manual Input Form (TEXT ONLY)
 # -------------------------
 st.sidebar.header("Patient Feature Entry")
 
 user_input = {}
+input_errors = False
 
 for feature in X.columns:
-    user_input[feature] = st.sidebar.number_input(
-        label=feature.replace("_", " ").title(),
-        min_value=float(X[feature].min()),
-        max_value=float(X[feature].max()),
-        value=float(X[feature].mean()),
-        step=0.0001,
-        format="%.5f"
+    value = st.sidebar.text_input(
+        label=f"Enter value of {feature.replace('_', ' ').title()}",
+        value=str(round(X[feature].mean(), 5))
     )
 
-input_df = pd.DataFrame([user_input])
-input_scaled = scaler.transform(input_df)
+    try:
+        user_input[feature] = float(value)
+    except ValueError:
+        st.sidebar.error(f"Invalid numeric value for {feature}")
+        input_errors = True
 
 # -------------------------
 # Prediction
 # -------------------------
 if st.sidebar.button("🔍 Predict Cancer"):
-    prediction = model.predict(input_scaled)[0]
-    probability = model.predict_proba(input_scaled)[0]
-
-    st.subheader("Prediction Result")
-
-    if prediction == 1:
-        st.success("🟢 Benign (Not Cancer)")
+    if input_errors:
+        st.error("❌ Please correct invalid inputs before prediction.")
     else:
-        st.error("🔴 Malignant (Cancer)")
+        input_df = pd.DataFrame([user_input])
+        input_scaled = scaler.transform(input_df)
 
-    st.subheader("Prediction Probability")
-    st.write(f"🟢 Benign Probability: **{probability[1]:.2f}**")
-    st.write(f"🔴 Malignant Probability: **{probability[0]:.2f}**")
+        prediction = model.predict(input_scaled)[0]
+        probability = model.predict_proba(input_scaled)[0]
 
-    # -------------------------
-    # Feature Importance
-    # -------------------------
-    st.subheader("Top 10 Important Features")
+        st.subheader("Prediction Result")
 
-    importances = pd.Series(
-        model.feature_importances_,
-        index=X.columns
-    ).sort_values(ascending=False)
+        if prediction == 1:
+            st.success("🟢 Benign (Not Cancer)")
+        else:
+            st.error("🔴 Malignant (Cancer)")
 
-    fig, ax = plt.subplots(figsize=(8, 4))
-    importances[:10].plot(kind="bar", ax=ax)
-    ax.set_ylabel("Importance")
-    ax.set_title("Feature Importance")
-    st.pyplot(fig)
+        st.subheader("Prediction Probability")
+        st.write(f"🟢 Benign Probability: **{probability[1]:.2f}**")
+        st.write(f"🔴 Malignant Probability: **{probability[0]:.2f}**")
+
+        # -------------------------
+        # Feature Importance
+        # -------------------------
+        st.subheader("Top 10 Important Features")
+
+        importances = pd.Series(
+            model.feature_importances_,
+            index=X.columns
+        ).sort_values(ascending=False)
+
+        fig, ax = plt.subplots(figsize=(8, 4))
+        importances[:10].plot(kind="bar", ax=ax)
+        ax.set_ylabel("Importance")
+        ax.set_title("Feature Importance")
+        st.pyplot(fig)
 
 # -------------------------
 # Footer
 # -------------------------
 st.markdown("---")
-st.caption("Developed by Jahnavi | Clinical ML Application using Streamlit")
+st.caption("Developed by Jahnavi | Clinical Data Entry ML Application")
+
