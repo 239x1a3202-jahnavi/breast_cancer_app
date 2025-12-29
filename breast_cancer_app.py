@@ -18,8 +18,8 @@ st.set_page_config(
 
 st.title("🩺 Breast Cancer Prediction System")
 st.write(
-    "Enter the patient feature values manually in the sidebar to predict "
-    "whether the tumor is **Benign** or **Malignant**."
+    "Please **manually enter all patient feature values** below. "
+    "These values represent clinical and diagnostic measurements."
 )
 
 # -------------------------
@@ -30,14 +30,11 @@ X = pd.DataFrame(data.data, columns=data.feature_names)
 y = pd.Series(data.target, name="Cancer")
 
 # -------------------------
-# Scale Features
+# Train Model
 # -------------------------
 scaler = StandardScaler()
 X_scaled = scaler.fit_transform(X)
 
-# -------------------------
-# Train Model
-# -------------------------
 X_train, X_test, y_train, y_test = train_test_split(
     X_scaled,
     y,
@@ -55,10 +52,9 @@ model = RandomForestClassifier(
 model.fit(X_train, y_train)
 
 # -------------------------
-# Sidebar Inputs (MANUAL ENTRY)
+# Manual Input Form (ALL FEATURES)
 # -------------------------
-st.sidebar.header("Patient Feature Values")
-st.sidebar.write("Enter numeric values for each medical feature.")
+st.sidebar.header("Patient Feature Entry")
 
 user_input = {}
 
@@ -68,10 +64,10 @@ for feature in X.columns:
         min_value=float(X[feature].min()),
         max_value=float(X[feature].max()),
         value=float(X[feature].mean()),
+        step=0.0001,
         format="%.5f"
     )
 
-# Convert input to DataFrame
 input_df = pd.DataFrame([user_input])
 input_scaled = scaler.transform(input_df)
 
@@ -82,20 +78,19 @@ if st.sidebar.button("🔍 Predict Cancer"):
     prediction = model.predict(input_scaled)[0]
     probability = model.predict_proba(input_scaled)[0]
 
-    result = "🟢 Benign (Not Cancer)" if prediction == 1 else "🔴 Malignant (Cancer)"
-
     st.subheader("Prediction Result")
+
     if prediction == 1:
-        st.success(result)
+        st.success("🟢 Benign (Not Cancer)")
     else:
-        st.error(result)
+        st.error("🔴 Malignant (Cancer)")
 
     st.subheader("Prediction Probability")
     st.write(f"🟢 Benign Probability: **{probability[1]:.2f}**")
     st.write(f"🔴 Malignant Probability: **{probability[0]:.2f}**")
 
     # -------------------------
-    # Feature Importance Plot
+    # Feature Importance
     # -------------------------
     st.subheader("Top 10 Important Features")
 
@@ -114,4 +109,4 @@ if st.sidebar.button("🔍 Predict Cancer"):
 # Footer
 # -------------------------
 st.markdown("---")
-st.caption("Developed by Jahnavi using Machine Learning & Streamlit")
+st.caption("Developed by Jahnavi | Clinical ML Application using Streamlit")
