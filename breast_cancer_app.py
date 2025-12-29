@@ -21,7 +21,7 @@ st.set_page_config(
 st.markdown("""
 <h1 style="text-align:center;">🩺 Breast Cancer Diagnostic System</h1>
 <p style="text-align:center; color:gray;">
-Clinical decision-support tool for manual pathology report entry
+Simple & clear cancer prediction using medical report values
 </p>
 """, unsafe_allow_html=True)
 
@@ -63,9 +63,9 @@ error_features = [f for f in X.columns if "error" in f]
 worst_features = [f for f in X.columns if "worst" in f]
 
 # =====================================================
-# INPUT FORM (MAIN PAGE)
+# INPUT SECTION
 # =====================================================
-st.subheader("📋 Patient Diagnostic Feature Entry")
+st.subheader("📋 Enter Medical Report Values")
 st.caption("Type values exactly as mentioned in the pathology report")
 
 user_input = {}
@@ -74,11 +74,12 @@ def render_inputs(features):
     cols = st.columns(3)
     for i, feature in enumerate(features):
         with cols[i % 3]:
-            value = st.text_input(
-                f"Enter {feature.replace('_', ' ').title()}",
-                value=f"{X[feature].mean():.5f}"
+            user_input[feature] = float(
+                st.text_input(
+                    f"{feature.replace('_', ' ').title()}",
+                    value=f"{X[feature].mean():.5f}"
+                )
             )
-            user_input[feature] = float(value)
 
 with st.expander("🟦 Mean Features", expanded=True):
     render_inputs(mean_features)
@@ -89,14 +90,11 @@ with st.expander("🟨 Error Features"):
 with st.expander("🟥 Worst Features"):
     render_inputs(worst_features)
 
-# =====================================================
-# PREDICT BUTTON
-# =====================================================
 st.markdown("<br>", unsafe_allow_html=True)
-predict = st.button("🔍 Predict Cancer", use_container_width=True)
+predict = st.button("🔍 Analyze Report", use_container_width=True)
 
 # =====================================================
-# RESULT SECTION (MAIN FOCUS)
+# RESULT SECTION
 # =====================================================
 if predict:
     input_df = pd.DataFrame([user_input])
@@ -109,78 +107,82 @@ if predict:
     malignant_prob = probability[0]
 
     if prediction == 1:
-        diagnosis = "BENIGN"
+        main_result = "NO CANCER DETECTED"
+        medical_term = "Benign Tumor"
         color = "#2ecc71"
         confidence = benign_prob
-        message = "Low likelihood of malignancy detected"
+        explanation = "The model did not find signs of cancerous cells."
     else:
-        diagnosis = "MALIGNANT"
+        main_result = "CANCER DETECTED"
+        medical_term = "Malignant Tumor"
         color = "#e74c3c"
         confidence = malignant_prob
-        message = "High likelihood of malignancy detected"
+        explanation = "The model found strong signs of cancerous cells."
 
     st.markdown("---")
-    st.markdown("<br>", unsafe_allow_html=True)
 
-    # ----------------- MAIN RESULT CARD -----------------
+    # ================= MAIN RESULT CARD =================
     st.markdown(
         f"""
         <div style="
             background-color:#ffffff;
-            padding:40px;
-            border-radius:18px;
+            padding:45px;
+            border-radius:20px;
             text-align:center;
-            box-shadow:0 6px 18px rgba(0,0,0,0.15);
-            border-top:10px solid {color};
+            box-shadow:0 8px 25px rgba(0,0,0,0.18);
+            border-top:12px solid {color};
         ">
-            <h1 style="color:{color}; font-size:52px;">{diagnosis}</h1>
-            <p style="font-size:22px; color:#555;">{message}</p>
+            <h1 style="color:{color}; font-size:56px;">{main_result}</h1>
+            <h3 style="color:#555;">({medical_term})</h3>
+            <p style="font-size:20px; color:#444;">{explanation}</p>
         </div>
         """,
         unsafe_allow_html=True
     )
 
-    st.markdown("<br>", unsafe_allow_html=True)
+    st.markdown("<br>")
 
-    # ----------------- CONFIDENCE -----------------
-    st.subheader("🔬 Model Confidence")
+    # ================= CONFIDENCE =================
+    st.subheader("🔬 Prediction Confidence")
     st.progress(confidence)
     st.markdown(
         f"<h3 style='text-align:center;'>{confidence:.2%}</h3>",
         unsafe_allow_html=True
     )
 
-    # ----------------- PROBABILITIES -----------------
+    # ================= PROBABILITY METRICS =================
     col1, col2 = st.columns(2)
     with col1:
-        st.metric("Benign Probability", f"{benign_prob:.2%}")
+        st.metric("No Cancer Probability", f"{benign_prob:.2%}")
     with col2:
-        st.metric("Malignant Probability", f"{malignant_prob:.2%}")
+        st.metric("Cancer Probability", f"{malignant_prob:.2%}")
 
-    # ----------------- FEATURE IMPORTANCE -----------------
+    # ================= PREMIUM FEATURE IMPORTANCE =================
     st.markdown("---")
-    st.subheader("📊 Top Influential Features")
+    st.subheader("📊 Key Factors Influencing the Result")
 
     importances = pd.Series(
         model.feature_importances_,
         index=X.columns
-    ).sort_values(ascending=False)
+    ).sort_values(ascending=True).tail(10)
 
-    fig, ax = plt.subplots(figsize=(10, 4))
-    importances[:10].plot(kind="bar", ax=ax)
-    ax.set_ylabel("Importance")
-    ax.set_title("Most Influential Diagnostic Features")
+    fig, ax = plt.subplots(figsize=(9, 5))
+    ax.barh(importances.index, importances.values)
+    ax.set_xlabel("Influence Level")
+    ax.set_title("Top Diagnostic Features")
+    ax.grid(axis="x", linestyle="--", alpha=0.4)
+
     st.pyplot(fig)
 
-    # ----------------- DISCLAIMER -----------------
+    # ================= DISCLAIMER =================
     st.warning(
-        "⚠️ **Medical Disclaimer:** This prediction is generated by a machine learning model "
-        "and is intended only for educational and decision-support purposes. "
-        "It must not be used as a substitute for professional medical diagnosis."
+        "⚠️ This tool is for educational and decision-support purposes only. "
+        "Always consult a certified medical professional for diagnosis."
     )
 
 # =====================================================
 # FOOTER
 # =====================================================
 st.markdown("---")
-st.caption("Developed by Jahnavi • Streamlit • Machine Learning")
+st.caption("Developed by Jahnavi • Machine Learning • Streamlit")
+
