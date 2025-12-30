@@ -1,93 +1,43 @@
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
+import numpy as np
 from sklearn.datasets import load_breast_cancer
 from sklearn.preprocessing import StandardScaler
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import train_test_split
 
 # =====================================================
-# PAGE CONFIG
+# PAGE CONFIG & THEME
 # =====================================================
-st.set_page_config(
-    page_title="OncoPredict AI | Clinical Dashboard",
-    page_icon="🧬",
-    layout="wide"
-)
+st.set_page_config(page_title="OncoPredict AI", page_icon="🧬", layout="wide")
 
-# =====================================================
-# CUSTOM CSS – HOSPITAL & CLINICAL THEME
-# =====================================================
 st.markdown("""
 <style>
-    /* Main background */
-    .stApp {
-        background-color: #F8FAFC;
-    }
-    
-    /* Modern Card Styling */
-    .metric-card {
-        background-color: #ffffff;
-        padding: 25px;
-        border-radius: 15px;
-        border: 1px solid #E2E8F0;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        margin-bottom: 20px;
-    }
-
-    /* Centered Hero Result */
+    .stApp { background-color: #F8FAFC; }
     .result-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        text-align: center;
-        padding: 50px;
-        background: white;
-        border-radius: 30px;
+        display: flex; flex-direction: column; align-items: center; text-align: center;
+        padding: 50px; background: white; border-radius: 30px;
         box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-        border: 1px solid #EDF2F7;
-        margin: 30px auto;
-        max-width: 800px;
+        border: 1px solid #EDF2F7; margin: 30px auto; max-width: 800px;
     }
-
     .status-badge {
-        padding: 8px 24px;
-        border-radius: 50px;
-        font-weight: bold;
-        text-transform: uppercase;
-        font-size: 13px;
-        margin-bottom: 20px;
-        letter-spacing: 1px;
+        padding: 8px 24px; border-radius: 50px; font-weight: bold;
+        text-transform: uppercase; font-size: 13px; margin-bottom: 20px;
     }
-
-    .stNumberInput label {
-        font-weight: 600 !important;
-        color: #334155 !important;
-    }
-    
-    .main-title {
-        font-size: 3.2rem;
-        font-weight: 800;
-        margin-bottom: 0;
-        line-height: 1.2;
-    }
+    .main-title { font-size: 3.2rem; font-weight: 800; margin-bottom: 0; }
 </style>
 """, unsafe_allow_html=True)
 
 # =====================================================
-# DATA & MODEL CACHING
+# DATA & MODEL
 # =====================================================
 @st.cache_resource
 def load_and_train():
     data = load_breast_cancer()
     X = pd.DataFrame(data.data, columns=data.feature_names)
     y = pd.Series(data.target)
-    
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
-    
-    # Train model on scaled data
     model = RandomForestClassifier(n_estimators=300, class_weight="balanced", random_state=42)
     model.fit(X_scaled, y)
     return model, scaler, X, data.feature_names
@@ -95,137 +45,98 @@ def load_and_train():
 model, scaler, X_raw, feature_names = load_and_train()
 
 # =====================================================
-# HEADER
+# HEADER & INPUTS
 # =====================================================
-st.markdown("<h1 style='text-align: center; color: #0F172A; margin-bottom:0;'>🧬 OncoPredict <span style='color: #3B82F6;'>AI</span></h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center; color: #64748B; font-size: 1.2rem;'>Advanced Clinical Diagnostic Decision Support</p>", unsafe_allow_html=True)
-st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: #0F172A;'>🧬 OncoPredict <span style='color: #3B82F6;'>AI</span></h1>", unsafe_allow_html=True)
 
-# =====================================================
-# MANUAL INPUT SECTION
-# =====================================================
-with st.container():
-    st.markdown("### 🩺 Patient Pathology Metrics")
-    st.caption("Please enter the 'Mean' values from the diagnostic report below.")
+important_features = [f for f in feature_names if "mean" in f]
+user_input = {}
 
-    # Filter for 'mean' features only
-    important_features = [f for f in feature_names if "mean" in f]
-    user_input = {}
-    
-    # 3-column grid for manual entry
+with st.expander("📋 Patient Data Entry", expanded=True):
     cols = st.columns(3)
     for i, feature in enumerate(important_features):
         with cols[i % 3]:
             user_input[feature] = st.number_input(
                 label=feature.replace("_", " ").title(),
-                min_value=0.0,
-                max_value=float(X_raw[feature].max() * 2),
-                value=float(X_raw[feature].mean()),
-                format="%.3f"
+                min_value=0.0, value=float(X_raw[feature].mean()), format="%.3f"
             )
 
-st.markdown("<br>", unsafe_allow_html=True)
 analyze = st.button("EXECUTE DIAGNOSTIC SCAN", use_container_width=True, type="primary")
 
 # =====================================================
-# RESULTS SECTION
+# RESULTS
 # =====================================================
 if analyze:
-    # 1. Prepare Data
-    input_df = pd.DataFrame([user_input])
-    # Align with all 30 features the model expects (fill missing with 0)
-    input_df = input_df.reindex(columns=feature_names, fill_value=0)
+    input_df = pd.DataFrame([user_input]).reindex(columns=feature_names, fill_value=0)
     input_scaled = scaler.transform(input_df)
-
-    # 2. Prediction
+    
     prediction = model.predict(input_scaled)[0]
     probs = model.predict_proba(input_scaled)[0]
     
-    # Logic: 0 = Malignant (Red), 1 = Benign (Green)
     is_benign = (prediction == 1)
-    conf_score = probs[1] if is_benign else probs[0]
+    risk_score = probs[0] * 100 # Malignant probability as a percentage
     
     res_color = "#10B981" if is_benign else "#EF4444"
     res_bg = "#ECFDF5" if is_benign else "#FEF2F2"
     res_label = "BENIGN (NO RISK)" if is_benign else "MALIGNANT (HIGH RISK)"
-    res_icon = "✔️" if is_benign else "⚠️"
 
-    # THE CENTERED "MAIN VIBE" RESULT CARD
     st.markdown(f"""
         <div class="result-container">
-            <div style="background-color: {res_bg}; color: {res_color};" class="status-badge">
-                Diagnostic Assessment Result
-            </div>
-            <h1 class="main-title" style="color: {res_color};">{res_icon} {res_label}</h1>
-            <p style="font-size: 1.5rem; color: #1E293B; margin-top: 15px; font-weight: 500;">
-                Confidence Level: {conf_score:.1%}
-            </p>
-            <div style="width: 100px; height: 4px; background: {res_color}; margin: 20px 0; border-radius: 10px;"></div>
-            <p style="color: #64748B; max-width: 550px; line-height: 1.6;">
-                The analysis indicates that the provided cellular measurements align with 
-                <b>{"non-malignant" if is_benign else "malignant"}</b> patterns. 
-                Further clinical correlation is required.
-            </p>
+            <div style="background-color: {res_bg}; color: {res_color};" class="status-badge">Clinical Assessment</div>
+            <h1 class="main-title" style="color: {res_color};">{"✔️" if is_benign else "⚠️"} {res_label}</h1>
+            <p style="color: #64748B; margin-top: 15px;">Model Confidence: {max(probs)*100:.1%}</p>
         </div>
     """, unsafe_allow_html=True)
 
-    # 3. CLASSY CHARTS SECTION
-    chart_col1, chart_col2 = st.columns(2)
+    col_left, col_right = st.columns(2)
 
-    with chart_col1:
-        st.markdown("#### 📊 Probability Distribution")
-        fig_prob = go.Figure()
-        fig_prob.add_trace(go.Bar(
-            x=['Malignant', 'Benign'],
-            y=[probs[0], probs[1]],
-            marker_color=['#EF4444', '#10B981'],
-            width=0.5,
-            text=[f"{probs[0]:.1%}", f"{probs[1]:.1%}"],
-            textposition='outside'
+    with col_left:
+        st.markdown("#### 🌡️ Risk Magnitude")
+        # GAUGE CHART
+        fig_gauge = go.Figure(go.Indicator(
+            mode = "gauge+number",
+            value = risk_score,
+            domain = {'x': [0, 1], 'y': [0, 1]},
+            title = {'text': "Malignancy Risk %", 'font': {'size': 18}},
+            gauge = {
+                'axis': {'range': [0, 100], 'tickwidth': 1},
+                'bar': {'color': res_color},
+                'bgcolor': "white",
+                'borderwidth': 2,
+                'bordercolor': "#E2E8F0",
+                'steps': [
+                    {'range': [0, 30], 'color': '#ECFDF5'},
+                    {'range': [30, 70], 'color': '#FFFBEB'},
+                    {'range': [70, 100], 'color': '#FEF2F2'}],
+                'threshold': {
+                    'line': {'color': "black", 'width': 4},
+                    'thickness': 0.75,
+                    'value': risk_score}}))
+        fig_gauge.update_layout(height=350, margin=dict(t=50, b=0))
+        st.plotly_chart(fig_gauge, use_container_width=True)
+
+    with col_right:
+        st.markdown("#### 🕸️ Feature Morphology (Radar)")
+        # RADAR CHART
+        categories = [f.replace(" mean", "") for f in important_features[:6]]
+        values = [user_input[f] for f in important_features[:6]]
+        # Normalize values for display
+        max_vals = [X_raw[f].max() for f in important_features[:6]]
+        norm_values = [v/m for v, m in zip(values, max_vals)]
+
+        fig_radar = go.Figure()
+        fig_radar.add_trace(go.Scatterpolar(
+            r=norm_values,
+            theta=categories,
+            fill='toself',
+            fillcolor=res_color,
+            opacity=0.3,
+            line=dict(color=res_color)
         ))
-        fig_prob.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            height=350,
-            font=dict(family="Arial", size=13, color="#334155"),
-            yaxis=dict(range=[0, 1.2], showticklabels=False, showgrid=False),
-            margin=dict(l=20, r=20, t=40, b=20)
+        fig_radar.update_layout(
+            polar=dict(radialaxis=dict(visible=True, range=[0, 1])),
+            showlegend=False, height=350, margin=dict(t=50, b=50)
         )
-        st.plotly_chart(fig_prob, use_container_width=True)
+        st.plotly_chart(fig_radar, use_container_width=True)
 
-    with chart_col2:
-        st.markdown("#### 🔍 Key Diagnostic Drivers")
-        importances = model.feature_importances_
-        feat_imp = pd.Series(importances[:len(important_features)], index=important_features)
-        top_5 = feat_imp.nlargest(5)
-
-        fig_imp = go.Figure()
-        fig_imp.add_trace(go.Bar(
-            x=top_5.values,
-            y=[f.replace("_", " ").title() for f in top_5.index],
-            orientation='h',
-            marker_color='#3B82F6',
-            width=0.6
-        ))
-        fig_imp.update_layout(
-            plot_bgcolor='rgba(0,0,0,0)',
-            paper_bgcolor='rgba(0,0,0,0)',
-            height=350,
-            font=dict(family="Arial", size=13, color="#334155"),
-            xaxis=dict(showgrid=True, gridcolor='#F1F5F9'),
-            yaxis=dict(autorange="reversed"),
-            margin=dict(l=20, r=20, t=40, b=20)
-        )
-        st.plotly_chart(fig_imp, use_container_width=True)
-
-    st.warning("🚨 **Notice:** This AI model is designed for decision support. It should be used in conjunction with official pathology reports and biopsy results.")
-
-# =====================================================
-# FOOTER
-# =====================================================
-st.markdown("<br><br><br>", unsafe_allow_html=True)
-st.markdown("""
-    <div style="text-align: center; color: #94A3B8; font-size: 0.85rem; border-top: 1px solid #E2E8F0; padding-top: 25px;">
-        Designed & Developed by Jahnavi • Clinical ML Systems v2.2 • © 2024
-    </div>
-""", unsafe_allow_html=True)
+    st.warning("🚨 This tool is for educational purposes and provides AI-based risk estimates only.")
